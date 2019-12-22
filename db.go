@@ -76,7 +76,7 @@ type NodeInfo struct {
 }
 
 func (*NodeInfo) TableName() string {
-	return "ss_node_info"
+	return "ss_node_info_log"
 }
 
 func (l *NodeInfo) BeforeCreate(scope *gorm.Scope) error {
@@ -98,9 +98,9 @@ type DB struct {
 	RetryTimes	int64
 }
 
-func (db *DB) GetAllUsers() ([]UserModel, error) {
+func (db *DB) GetAllUsers(nodeClass string) ([]UserModel, error) {
 	users := make([]UserModel, 0)
-	err := db.DB.Select("id, vmess_id, username, port").Where("enable = 1 AND u + d < transfer_enable").Find(&users).Error
+	db.DB.Select("id, v2ray_uuid, email").Where("enable = 1 AND u + d < transfer_enable AND plan >= ?", nodeClass).Find(&users)
 	return users, err
 }
 
