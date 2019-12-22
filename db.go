@@ -9,7 +9,7 @@ import (
 type UserModel struct {
 	ID      uint
 	VmessID string `gorm:"column:v2ray_uuid"`
-	Email   string `gorm:"column:username"`
+	Email   string `gorm:"column:email"`
 	Port    int
 }
 
