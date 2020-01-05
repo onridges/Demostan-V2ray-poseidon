@@ -84,7 +84,8 @@ func (p *Panel) do() error {
 	if err != nil {
 		return err
 	}
-	onlineUsers = len(userTrafficLogs)
+	// onlineUsers = len(userTrafficLogs)
+	onlineUsers = 0
 
 	var uVals, dVals string
 	var userIDs []uint
@@ -92,6 +93,10 @@ func (p *Panel) do() error {
 	for _, log := range userTrafficLogs {
 		uplink := p.mulTrafficRate(log.Uplink)
 		downlink := p.mulTrafficRate(log.Downlink)
+
+		if log.Uplink+log.Downlink > 2048 {
+			onlineUsers += 1
+		}
 
 		uplinkTotal += log.Uplink
 		downlinkTotal += log.Downlink
@@ -182,7 +187,7 @@ func (p *Panel) mulTrafficRate(traffic uint64) uint64 {
 }
 
 func (p *Panel) syncUser() (addedUserCount, deletedUserCount int, err error) {
-	userModels, err := p.db.GetAllUsers()
+	userModels, err := p.db.GetAllUsers(p.Config.NodeClass)
 	if err != nil {
 		return 0, 0, err
 	}

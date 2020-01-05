@@ -8,8 +8,8 @@ import (
 
 type UserModel struct {
 	ID      uint
-	VmessID string
-	Email   string `gorm:"column:username"`
+	VmessID string `gorm:"column:v2ray_uuid"`
+	Email   string `gorm:"column:email"`
 	Port    int
 }
 
@@ -76,7 +76,7 @@ type NodeInfo struct {
 }
 
 func (*NodeInfo) TableName() string {
-	return "ss_node_info"
+	return "ss_node_info_log"
 }
 
 func (l *NodeInfo) BeforeCreate(scope *gorm.Scope) error {
@@ -94,13 +94,13 @@ func (*Node) TableName() string {
 }
 
 type DB struct {
-	DB 			*gorm.DB
-	RetryTimes	int64
+	DB         *gorm.DB
+	RetryTimes int64
 }
 
-func (db *DB) GetAllUsers() ([]UserModel, error) {
+func (db *DB) GetAllUsers(nodeClass string) ([]UserModel, error) {
 	users := make([]UserModel, 0)
-	err := db.DB.Select("id, vmess_id, username, port").Where("enable = 1 AND u + d < transfer_enable").Find(&users).Error
+	err := db.DB.Select("id, v2ray_uuid, email, port").Where("enable = 1 AND u + d < transfer_enable AND plan >= ?", nodeClass).Find(&users).Error
 	return users, err
 }
 
