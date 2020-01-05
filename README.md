@@ -1,58 +1,10 @@
 # Poseidon -- A buildin V2ray plugin
 
-## Why change the name of the repo
-
-The name have to be changed for these reasons:
-
-1. I've learnt that there are still many panels need to be adapt with V2ray
-  - SSPanel-v3
-  - WEBAPI SSRPanel（VNetPanel）
-2. I'd like to provide a new deployment way
-  - Poseidon-Master node
-    - Automatic install Poseidon-V2ray node on new nodes which you added to the server list in your panel
-    - Automatic config Poseidon-V2ray node
-    - Real-time script output of deployment can be seen in Web browsers
-    - Any time and any where you can execute shell commands in your poseidon-v2ray node
-  - Poseidon-V2ray node
-3. To config with ease, a bran-new [v2ray config generator](https://github.com/ColetteContreras/poseidon-v2ray-config-generator) is going to be introduced to Poseidon-master.
-
-### What's the difference between `Community` version and `Enterprise` version?
-
-Community version can only be used for a small user scale, which user count is less than 50.
-
-Enterprise version has no limit. [How to get Enterprise version? and how much is it?](https://github.com/ColetteContreras/v2ray-poseidon/wiki/How-to-get-Enterprise-version%3F-and-how-much-is-it%3F)
-
-
-## Contact
+### Contact
 
 Get in touch via [TG group: v2ray_poseidon](https://t.me/v2ray_poseidon)
 
-## Updates
-
-- v1.0.0
-
-  Breaking Changes:
-
-  - config files structure has been changed, new structure is:
-
-  ```diff
-  {
-  -  "ssrpanel": {
-  +  "poseidon": {
-      ... ... 
-    }
-  }
-  ```
-  
-  - Added IP limit
-    - It's a number that how many ip a user can use at the same moment
-    - You can set user's `protocol_param` field on the database
-  - Added rate limit
-    - You should set user's `speed_limit_per_user` and `speed_limit_per_conn` fields on the database
-  - Added closing user connections instantly after user has been deleted
-    - By default the user's connections will not be disconnected after being deleted, but that is not we wanted.
-
-=========================
+##
 
 Only one thing user should do is that setting up the database connection, without doing that user needn't do anything!
 
