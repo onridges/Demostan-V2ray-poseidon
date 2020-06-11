@@ -107,15 +107,6 @@ func (p *Panel) do() error {
 		userIDs = append(userIDs, log.UserID)
 		uVals += fmt.Sprintf(" WHEN %d THEN u + %d", log.UserID, uplink)
 		dVals += fmt.Sprintf(" WHEN %d THEN d + %d", log.UserID, downlink)
-
-		if log.ipList != "" {
-			p.db.DB.Create(&NodeIP{
-				NodeID: log.NodeID,
-				UserID: log.UserID,
-				IPList: log.ipList,
-				Port:   log.UserPort,
-			})
-		}
 	}
 
 	if onlineUsers > 0 {
@@ -141,13 +132,11 @@ func (p *Panel) do() error {
 
 type userStatsLogs struct {
 	UserTrafficLog
-	ipList   string
 	UserPort int
 }
 
 func (p *Panel) getTraffic() (logs []userStatsLogs, err error) {
 	var downlink, uplink uint64
-	var ips string
 	for _, user := range p.userModels {
 		downlink, err = p.statsServiceClient.getUserDownlink(user.Email)
 		if err != nil {
@@ -160,7 +149,6 @@ func (p *Panel) getTraffic() (logs []userStatsLogs, err error) {
 		}
 
 		if uplink+downlink > 0 {
-			ips, err = p.statsServiceClient.getUserIPStats(user.Email, true)
 			if err != nil {
 				return
 			}
@@ -173,7 +161,6 @@ func (p *Panel) getTraffic() (logs []userStatsLogs, err error) {
 					NodeID:   p.NodeID,
 					Rate:     p.node.TrafficRate,
 				},
-				ipList:   ips,
 				UserPort: user.Port,
 			})
 		}
