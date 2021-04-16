@@ -5,7 +5,7 @@ import (
 	"google.golang.org/grpc/status"
 	"os"
 	"time"
-	"v2ray.com/core/common/errors"
+	"github.com/v2fly/v2ray-core/v4/common/errors"
 )
 
 func init() {

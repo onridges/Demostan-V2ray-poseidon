@@ -8,9 +8,9 @@ import (
 	"github.com/shirou/gopsutil/load"
 	"google.golang.org/grpc"
 	"time"
-	"v2ray.com/core/common/protocol"
-	"v2ray.com/core/common/serial"
-	"v2ray.com/core/proxy/vmess"
+	"github.com/v2fly/v2ray-core/v4/common/protocol"
+	"github.com/v2fly/v2ray-core/v4/common/serial"
+	"github.com/v2fly/v2ray-core/v4/proxy/vmess"
 )
 
 type Panel struct {
