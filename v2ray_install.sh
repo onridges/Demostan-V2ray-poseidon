@@ -890,6 +890,7 @@ Type=simple
 User=root
 #User=nobody
 NoNewPrivileges=true
+Environment="V2RAY_VMESS_AEAD_FORCED=false"
 ExecStart=/usr/bin/v2ray/v2ray -config /etc/v2ray/config.json
 Restart=on-failure
 
@@ -1006,15 +1007,6 @@ vmessConfig() {
     local alterid=`shuf -i50-80 -n1`
     cat > $CONFIG_FILE<<-EOF
 {
-  "api": {
-    "services": [
-      "HandlerService",
-      "LoggerService",
-      "StatsService"
-    ],
-    "tag": "api"
-  },
-  "stats": {},
   "inbounds": [{
     "port": $PORT,
     "protocol": "vmess",
@@ -1026,8 +1018,7 @@ vmessConfig() {
           "alterId": $alterid
         }
       ]
-    },
-    "tag": "proxy"
+    }
   }],
   "outbounds": [{
     "protocol": "freedom",
@@ -1087,24 +1078,18 @@ vmessTLSConfig() {
     local uuid="$(cat '/proc/sys/kernel/random/uuid')"
     cat > $CONFIG_FILE<<-EOF
 {
-  "api": {
-    "services": [
-      "HandlerService",
-      "LoggerService",
-      "StatsService"
-    ],
-    "tag": "api"
-  },
-  "stats": {},
   "inbounds": [{
     "port": $PORT,
     "protocol": "vmess",
-    "sniffing": {
-      "destOverride": [
-        "http",
-        "tls"
+    "settings": {
+      "clients": [
+        {
+          "id": "$uuid",
+          "level": 1,
+          "alterId": 0
+        }
       ],
-      "enabled": true
+      "disableInsecureEncryption": false
     },
     "streamSettings": {
         "network": "tcp",
