@@ -1238,9 +1238,9 @@ vmessWSConfig() {
         "nodeClass": "$NODE_TYPE",
         "nodeId": $NODE_ID,
         "user": {
-            "alterId": 0,
+            "alterId": 2,
             "inboundTag": "proxy",
-            "level": 4,
+            "level": 0,
             "security": "auto"
         }
     }
