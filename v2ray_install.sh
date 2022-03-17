@@ -242,6 +242,45 @@ archAffix(){
 }
 
 getData() {
+    echo ""
+    while true
+    do
+        read -p " 请输节点ID：" NODE_ID
+        if [[ -z "${NODE_ID}" ]]; then
+            colorEcho ${RED} " 请重新输入！"
+        else
+            break
+        fi
+    done
+    NODE_ID=${NODE_ID,,}
+    colorEcho ${BLUE}  " 节点ID：$NODE_ID"
+
+    echo ""
+    while true
+    do
+        read -p " 请输节点类型：" NODE_TYPE
+        if [[ -z "${NODE_TYPE}" ]]; then
+            colorEcho ${RED} " 请重新输入！"
+        else
+            break
+        fi
+    done
+    # NODE_TYPE=${NODE_TYPE,,}
+    colorEcho ${BLUE}  " 节点类型：$NODE_TYPE"
+
+    echo ""
+    while true
+    do
+        read -p " 请输数据库密码：" DB_PASSWORD
+        if [[ -z "${DB_PASSWORD}" ]]; then
+            colorEcho ${RED} " 请重新输入！"
+        else
+            break
+        fi
+    done
+    # DB_PASSWORD=${DB_PASSWORD,,}
+    colorEcho ${BLUE}  " 密码：$DB_PASSWORD"
+    
     if [[ "$TLS" = "true" || "$XTLS" = "true" ]]; then
         echo ""
         echo " V2ray一键脚本，运行之前请确认如下条件已经具备："
@@ -267,51 +306,13 @@ getData() {
         DOMAIN=${DOMAIN,,}
         colorEcho ${BLUE}  " 伪装域名(host)：$DOMAIN"
 
-        echo ""
-        while true
-        do
-            read -p " 请输节点ID：" NODE_ID
-            if [[ -z "${NODE_ID}" ]]; then
-                colorEcho ${RED} " 请重新输入！"
-            else
-                break
-            fi
-        done
-        NODE_ID=${NODE_ID,,}
-        colorEcho ${BLUE}  " 节点ID：$NODE_ID"
-
-        echo ""
-        while true
-        do
-            read -p " 请输节点类型：" NODE_TYPE
-            if [[ -z "${NODE_TYPE}" ]]; then
-                colorEcho ${RED} " 请重新输入！"
-            else
-                break
-            fi
-        done
-        # NODE_TYPE=${NODE_TYPE,,}
-        colorEcho ${BLUE}  " 节点类型：$NODE_TYPE"
-
-        echo ""
-        while true
-        do
-            read -p " 请输数据库密码：" DB_PASSWORD
-            if [[ -z "${DB_PASSWORD}" ]]; then
-                colorEcho ${RED} " 请重新输入！"
-            else
-                break
-            fi
-        done
-        # DB_PASSWORD=${DB_PASSWORD,,}
-        colorEcho ${BLUE}  " 密码：$DB_PASSWORD"
-
         if [[ -f ~/v2ray.pem && -f ~/v2ray.key ]]; then
             colorEcho ${BLUE}  " 检测到自有证书，将使用其部署"
             CERT_FILE="/etc/v2ray/${DOMAIN}.pem"
             KEY_FILE="/etc/v2ray/${DOMAIN}.key"
         else
-            resolve=`curl -sL https://hijk.art/hostip.php?d=${DOMAIN}`
+            # resolve=`curl -sL https://hijk.art/hostip.php?d=${DOMAIN}`
+            resolve=`ping ${DOMAIN} -c 1`
             res=`echo -n ${resolve} | grep ${IP}`
             if [[ -z "${res}" ]]; then
                 colorEcho ${BLUE}  "${DOMAIN} 解析结果：${resolve}"
@@ -1007,27 +1008,123 @@ vmessConfig() {
     local alterid=`shuf -i50-80 -n1`
     cat > $CONFIG_FILE<<-EOF
 {
-  "inbounds": [{
-    "port": $PORT,
-    "protocol": "vmess",
-    "settings": {
-      "clients": [
+    "api": {
+        "services": [
+            "HandlerService",
+            "LoggerService",
+            "StatsService"
+        ],
+        "tag": "api"
+    },
+    "stats": {}
+    "inbounds": [
         {
-          "id": "$uuid",
-          "level": 1,
-          "alterId": $alterid
+            "port": $PORT,
+            "protocol": "vmess",
+            "sniffing": {
+                "destOverride": [
+                    "http",
+                    "tls"
+                ],
+                "enabled": true
+            },
+            "tag": "proxy"
+        },
+        {
+            "listen": "127.0.0.1",
+            "port": 10085,
+            "protocol": "dokodemo-door",
+            "settings": {
+                "address": "127.0.0.1"
+            },
+            "tag": "api"
         }
-      ]
+    ],
+    "outbounds": [
+        {
+            "protocol": "freedom",
+            "tag": "direct"
+        },
+        {
+            "protocol": "freedom",
+            "settings": {},
+            "tag": "IP4_out"
+        },
+        {
+            "protocol": "freedom",
+            "settings": {
+                "domainStrategy": "UseIPv6"
+            },
+            "tag": "IP6_out"
+        },
+        {
+            "protocol": "blackhole",
+            "settings": {},
+            "tag": "blocked"
+        }
+    ],
+    "policy": {
+        "levels": {
+            "0": {
+                "connIdle": 300,
+                "downlinkOnly": 5,
+                "handshake": 4,
+                "statsUserDownlink": true,
+                "statsUserUplink": true,
+                "uplinkOnly": 2
+            }
+        },
+        "system": {
+            "statsInboundDownlink": true,
+            "statsInboundUplink": true
+        }
+    },
+    "routing": {
+        "rules": [
+            {
+                "inboundTag": [
+                    "api"
+                ],
+                "outboundTag": "api",
+                "type": "field"
+            },
+            {
+                "domain": [
+                    "geosite:netflix"
+                ],
+                "outboundTag": "IP6_out",
+                "type": "field"
+            },
+            {
+                "network": "udp,tcp",
+                "outboundTag": "direct",
+                "type": "field"
+            }
+        ],
+        "strategy": "rules"
+    },
+    "log": {
+        "loglevel": "none"
+    },
+    "ssrpanel": {
+        "checkRate": 300,
+        "ignoreEmptyVmessID": true,
+        "mysql": {
+            "dbname": "shadowsocks",
+            "host": "db.shadowsky.xyz",
+            "password": "$DB_PASSWORD",
+            "port": 3306,
+            "user": "root"
+        },
+        "nodeClass": "$NODE_TYPE",
+        "nodeId": $NODE_ID,
+        "user": {
+            "alterId": 2,
+            "inboundTag": "proxy",
+            "level": 0,
+            "security": "auto"
+        }
     }
-  }],
-  "outbounds": [{
-    "protocol": "freedom",
-    "settings": {}
-  },{
-    "protocol": "blackhole",
-    "settings": {},
-    "tag": "blocked"
-  }]
 }
 EOF
 }
@@ -1037,91 +1134,114 @@ vmessKCPConfig() {
     local alterid=`shuf -i50-80 -n1`
     cat > $CONFIG_FILE<<-EOF
 {
-  "inbounds": [{
-    "port": $PORT,
-    "protocol": "vmess",
-    "settings": {
-      "clients": [
+    "inbounds": [
         {
-          "id": "$uuid",
-          "level": 1,
-          "alterId": $alterid
-        }
-      ]
-    },
-    "streamSettings": {
-        "network": "mkcp",
-        "kcpSettings": {
-            "uplinkCapacity": 100,
-            "downlinkCapacity": 100,
-            "congestion": true,
-            "header": {
-                "type": "$HEADER_TYPE"
-            },
-            "seed": "$SEED"
-        }
-    }
-  }],
-  "outbounds": [{
-    "protocol": "freedom",
-    "settings": {}
-  },{
-    "protocol": "blackhole",
-    "settings": {},
-    "tag": "blocked"
-  }]
-}
-EOF
-}
-
-vmessTLSConfig() {
-    local uuid="$(cat '/proc/sys/kernel/random/uuid')"
-    cat > $CONFIG_FILE<<-EOF
-{
-  "inbounds": [{
-    "port": $PORT,
-    "protocol": "vmess",
-    "settings": {
-      "clients": [
-        {
-          "id": "$uuid",
-          "level": 1,
-          "alterId": 0
-        }
-      ],
-      "disableInsecureEncryption": false
-    },
-    "streamSettings": {
-        "network": "tcp",
-        "security": "tls",
-        "tlsSettings": {
-            "serverName": "$DOMAIN",
-            "alpn": ["http/1.1", "h2"],
-            "certificates": [
-                {
-                    "certificateFile": "$CERT_FILE",
-                    "keyFile": "$KEY_FILE"
+            "port": $PORT,
+            "protocol": "vmess",
+            "streamSettings": {
+                "network": "mkcp",
+                "kcpSettings": {
+                    "uplinkCapacity": 100,
+                    "downlinkCapacity": 100,
+                    "congestion": true,
+                    "header": {
+                        "type": "$HEADER_TYPE"
+                    },
+                    "seed": "$SEED"
                 }
-            ]
+            },
+            "tag": "proxy"
+        },
+        {
+            "listen": "127.0.0.1",
+            "port": 10085,
+            "protocol": "dokodemo-door",
+            "settings": {
+                "address": "127.0.0.1"
+            },
+            "tag": "api"
         }
-    }
-  }],
-  "outbounds": [{
-    "protocol": "freedom",
-    "settings": {}
-  },{
-    "protocol": "blackhole",
-    "settings": {},
-    "tag": "blocked"
-  }]
-}
-EOF
-}
-
-vmessWSConfig() {
-    local uuid="$(cat '/proc/sys/kernel/random/uuid')"
-    cat > $CONFIG_FILE<<-EOF
-{
+    ],
+    "outbounds": [
+        {
+            "protocol": "freedom",
+            "tag": "direct"
+        },
+        {
+            "protocol": "freedom",
+            "settings": {},
+            "tag": "IP4_out"
+        },
+        {
+            "protocol": "freedom",
+            "settings": {
+                "domainStrategy": "UseIPv6"
+            },
+            "tag": "IP6_out"
+        }
+    ],
+    "policy": {
+        "levels": {
+            "0": {
+                "connIdle": 300,
+                "downlinkOnly": 5,
+                "handshake": 4,
+                "statsUserDownlink": true,
+                "statsUserUplink": true,
+                "uplinkOnly": 2
+            }
+        },
+        "system": {
+            "statsInboundDownlink": true,
+            "statsInboundUplink": true
+        }
+    },
+    "routing": {
+        "rules": [
+            {
+                "inboundTag": [
+                    "api"
+                ],
+                "outboundTag": "api",
+                "type": "field"
+            },
+            {
+                "domain": [
+                    "geosite:netflix"
+                ],
+                "outboundTag": "IP6_out",
+                "type": "field"
+            },
+            {
+                "network": "udp,tcp",
+                "outboundTag": "direct",
+                "type": "field"
+            }
+        ],
+        "strategy": "rules"
+    },
+    "log": {
+        "loglevel": "none"
+    },
+    "ssrpanel": {
+        "checkRate": 300,
+        "ignoreEmptyVmessID": true,
+        "mysql": {
+            "dbname": "shadowsocks",
+            "host": "db.shadowsky.xyz",
+            "password": "$DB_PASSWORD",
+            "port": 3306,
+            "user": "root"
+        },
+        "nodeClass": "$NODE_TYPE",
+        "nodeId": $NODE_ID,
+        "user": {
+            "alterId": 2,
+            "inboundTag": "proxy",
+            "level": 0,
+            "security": "auto"
+        }
+    },
     "api": {
         "services": [
             "HandlerService",
@@ -1130,12 +1250,155 @@ vmessWSConfig() {
         ],
         "tag": "api"
     },
-    "stats": {},
+    "stats": {}
+}
+EOF
+}
+
+vmessTLSConfig() {
+    local uuid="$(cat '/proc/sys/kernel/random/uuid')"
+    cat > $CONFIG_FILE<<-EOF
+{
+    "inbounds": [
+        {
+            "port": $PORT,
+            "protocol": "vmess",
+            "settings": {
+                "disableInsecureEncryption": false
+            },
+            "streamSettings": {
+                "network": "tcp",
+                "security": "tls",
+                "tlsSettings": {
+                    "serverName": "$DOMAIN",
+                    "alpn": [
+                        "http/1.1",
+                        "h2"
+                    ],
+                    "certificates": [
+                        {
+                            "certificateFile": "$CERT_FILE",
+                            "keyFile": "$KEY_FILE"
+                        }
+                    ]
+                }
+            },
+            "tag": "proxy"
+        },
+        {
+            "listen": "127.0.0.1",
+            "port": 10085,
+            "protocol": "dokodemo-door",
+            "settings": {
+                "address": "127.0.0.1"
+            },
+            "tag": "api"
+        }
+    ],
+    "outbounds": [
+        {
+            "protocol": "freedom",
+            "tag": "direct"
+        },
+        {
+            "protocol": "freedom",
+            "settings": {},
+            "tag": "IP4_out"
+        },
+        {
+            "protocol": "freedom",
+            "settings": {
+                "domainStrategy": "UseIPv6"
+            },
+            "tag": "IP6_out"
+        }
+    ],
+    "policy": {
+        "levels": {
+            "0": {
+                "connIdle": 300,
+                "downlinkOnly": 5,
+                "handshake": 4,
+                "statsUserDownlink": true,
+                "statsUserUplink": true,
+                "uplinkOnly": 2
+            }
+        },
+        "system": {
+            "statsInboundDownlink": true,
+            "statsInboundUplink": true
+        }
+    },
+    "routing": {
+        "rules": [
+            {
+                "inboundTag": [
+                    "api"
+                ],
+                "outboundTag": "api",
+                "type": "field"
+            },
+            {
+                "domain": [
+                    "geosite:netflix"
+                ],
+                "outboundTag": "IP6_out",
+                "type": "field"
+            },
+            {
+                "network": "udp,tcp",
+                "outboundTag": "direct",
+                "type": "field"
+            }
+        ],
+        "strategy": "rules"
+    },
+    "log": {
+        "loglevel": "none"
+    },
+    "ssrpanel": {
+        "checkRate": 300,
+        "ignoreEmptyVmessID": true,
+        "mysql": {
+            "dbname": "shadowsocks",
+            "host": "db.shadowsky.xyz",
+            "password": "$DB_PASSWORD",
+            "port": 3306,
+            "user": "root"
+        },
+        "nodeClass": "$NODE_TYPE",
+        "nodeId": $NODE_ID,
+        "user": {
+            "alterId": 2,
+            "inboundTag": "proxy",
+            "level": 0,
+            "security": "auto"
+        }
+    },
+    "api": {
+        "services": [
+            "HandlerService",
+            "LoggerService",
+            "StatsService"
+        ],
+        "tag": "api"
+    },
+    "stats": {}
+}
+EOF
+}
+
+vmessWSConfig() {
+    local uuid="$(cat '/proc/sys/kernel/random/uuid')"
+    cat > $CONFIG_FILE<<-EOF
+{
     "inbounds": [
         {
             "port": $V2PORT,
             "listen": "127.0.0.1",
             "protocol": "vmess",
+            "settings": {
+            },
             "sniffing": {
                 "destOverride": [
                     "http",
@@ -1243,7 +1506,16 @@ vmessWSConfig() {
             "level": 0,
             "security": "auto"
         }
-    }
+    },
+    "api": {
+        "services": [
+            "HandlerService",
+            "LoggerService",
+            "StatsService"
+        ],
+        "tag": "api"
+    },
+    "stats": {}
 }
 EOF
 }
@@ -1252,51 +1524,147 @@ vlessTLSConfig() {
     local uuid="$(cat '/proc/sys/kernel/random/uuid')"
     cat > $CONFIG_FILE<<-EOF
 {
-  "inbounds": [{
-    "port": $PORT,
-    "protocol": "vless",
-    "settings": {
-      "clients": [
+    "inbounds": [
         {
-          "id": "$uuid",
-          "level": 0
-        }
-      ],
-      "decryption": "none",
-      "fallbacks": [
-          {
-              "alpn": "http/1.1",
-              "dest": 80
-          },
-          {
-              "alpn": "h2",
-              "dest": 81
-          }
-      ]
-    },
-    "streamSettings": {
-        "network": "tcp",
-        "security": "tls",
-        "tlsSettings": {
-            "serverName": "$DOMAIN",
-            "alpn": ["http/1.1", "h2"],
-            "certificates": [
-                {
-                    "certificateFile": "$CERT_FILE",
-                    "keyFile": "$KEY_FILE"
+            "port": $PORT,
+            "protocol": "vless",
+            "settings": {
+                "clients": [
+                    {
+                        "id": "$uuid",
+                        "level": 0
+                    }
+                ],
+                "decryption": "none",
+                "fallbacks": [
+                    {
+                        "alpn": "http/1.1",
+                        "dest": 80
+                    },
+                    {
+                        "alpn": "h2",
+                        "dest": 81
+                    }
+                ]
+            },
+            "streamSettings": {
+                "network": "tcp",
+                "security": "tls",
+                "tlsSettings": {
+                    "serverName": "$DOMAIN",
+                    "alpn": [
+                        "http/1.1",
+                        "h2"
+                    ],
+                    "certificates": [
+                        {
+                            "certificateFile": "$CERT_FILE",
+                            "keyFile": "$KEY_FILE"
+                        }
+                    ]
                 }
-            ]
+            },
+            "tag": "proxy"
+        },
+        {
+            "listen": "127.0.0.1",
+            "port": 10085,
+            "protocol": "dokodemo-door",
+            "settings": {
+                "address": "127.0.0.1"
+            },
+            "tag": "api"
         }
-    }
-  }],
-  "outbounds": [{
-    "protocol": "freedom",
-    "settings": {}
-  },{
-    "protocol": "blackhole",
-    "settings": {},
-    "tag": "blocked"
-  }]
+    ],
+    "outbounds": [
+        {
+            "protocol": "freedom",
+            "tag": "direct"
+        },
+        {
+            "protocol": "freedom",
+            "settings": {},
+            "tag": "IP4_out"
+        },
+        {
+            "protocol": "freedom",
+            "settings": {
+                "domainStrategy": "UseIPv6"
+            },
+            "tag": "IP6_out"
+        }
+    ],
+    "policy": {
+        "levels": {
+            "0": {
+                "connIdle": 300,
+                "downlinkOnly": 5,
+                "handshake": 4,
+                "statsUserDownlink": true,
+                "statsUserUplink": true,
+                "uplinkOnly": 2
+            }
+        },
+        "system": {
+            "statsInboundDownlink": true,
+            "statsInboundUplink": true
+        }
+    },
+    "routing": {
+        "rules": [
+            {
+                "inboundTag": [
+                    "api"
+                ],
+                "outboundTag": "api",
+                "type": "field"
+            },
+            {
+                "domain": [
+                    "geosite:netflix"
+                ],
+                "outboundTag": "IP6_out",
+                "type": "field"
+            },
+            {
+                "network": "udp,tcp",
+                "outboundTag": "direct",
+                "type": "field"
+            }
+        ],
+        "strategy": "rules"
+    },
+    "log": {
+        "loglevel": "none"
+    },
+    "ssrpanel": {
+        "checkRate": 300,
+        "ignoreEmptyVmessID": true,
+        "mysql": {
+            "dbname": "shadowsocks",
+            "host": "db.shadowsky.xyz",
+            "password": "$DB_PASSWORD",
+            "port": 3306,
+            "user": "root"
+        },
+        "nodeClass": "$NODE_TYPE",
+        "nodeId": $NODE_ID,
+        "user": {
+            "alterId": 2,
+            "inboundTag": "proxy",
+            "level": 0,
+            "security": "auto"
+        }
+    },
+    "api": {
+        "services": [
+            "HandlerService",
+            "LoggerService",
+            "StatsService"
+        ],
+        "tag": "api"
+    },
+    "stats": {}
 }
 EOF
 }
@@ -1305,52 +1673,148 @@ vlessXTLSConfig() {
     local uuid="$(cat '/proc/sys/kernel/random/uuid')"
     cat > $CONFIG_FILE<<-EOF
 {
-  "inbounds": [{
-    "port": $PORT,
-    "protocol": "vless",
-    "settings": {
-      "clients": [
+    "inbounds": [
         {
-          "id": "$uuid",
-          "flow": "$FLOW",
-          "level": 0
-        }
-      ],
-      "decryption": "none",
-      "fallbacks": [
-          {
-              "alpn": "http/1.1",
-              "dest": 80
-          },
-          {
-              "alpn": "h2",
-              "dest": 81
-          }
-      ]
-    },
-    "streamSettings": {
-        "network": "tcp",
-        "security": "xtls",
-        "xtlsSettings": {
-            "serverName": "$DOMAIN",
-            "alpn": ["http/1.1", "h2"],
-            "certificates": [
-                {
-                    "certificateFile": "$CERT_FILE",
-                    "keyFile": "$KEY_FILE"
+            "port": $PORT,
+            "protocol": "vless",
+            "settings": {
+                "clients": [
+                    {
+                        "id": "$uuid",
+                        "flow": "$FLOW",
+                        "level": 0
+                    }
+                ],
+                "decryption": "none",
+                "fallbacks": [
+                    {
+                        "alpn": "http/1.1",
+                        "dest": 80
+                    },
+                    {
+                        "alpn": "h2",
+                        "dest": 81
+                    }
+                ]
+            },
+            "streamSettings": {
+                "network": "tcp",
+                "security": "xtls",
+                "xtlsSettings": {
+                    "serverName": "$DOMAIN",
+                    "alpn": [
+                        "http/1.1",
+                        "h2"
+                    ],
+                    "certificates": [
+                        {
+                            "certificateFile": "$CERT_FILE",
+                            "keyFile": "$KEY_FILE"
+                        }
+                    ]
                 }
-            ]
+            },
+            "tag": "proxy"
+        },
+        {
+            "listen": "127.0.0.1",
+            "port": 10085,
+            "protocol": "dokodemo-door",
+            "settings": {
+                "address": "127.0.0.1"
+            },
+            "tag": "api"
         }
-    }
-  }],
-  "outbounds": [{
-    "protocol": "freedom",
-    "settings": {}
-  },{
-    "protocol": "blackhole",
-    "settings": {},
-    "tag": "blocked"
-  }]
+    ],
+    "outbounds": [
+        {
+            "protocol": "freedom",
+            "tag": "direct"
+        },
+        {
+            "protocol": "freedom",
+            "settings": {},
+            "tag": "IP4_out"
+        },
+        {
+            "protocol": "freedom",
+            "settings": {
+                "domainStrategy": "UseIPv6"
+            },
+            "tag": "IP6_out"
+        }
+    ],
+    "policy": {
+        "levels": {
+            "0": {
+                "connIdle": 300,
+                "downlinkOnly": 5,
+                "handshake": 4,
+                "statsUserDownlink": true,
+                "statsUserUplink": true,
+                "uplinkOnly": 2
+            }
+        },
+        "system": {
+            "statsInboundDownlink": true,
+            "statsInboundUplink": true
+        }
+    },
+    "routing": {
+        "rules": [
+            {
+                "inboundTag": [
+                    "api"
+                ],
+                "outboundTag": "api",
+                "type": "field"
+            },
+            {
+                "domain": [
+                    "geosite:netflix"
+                ],
+                "outboundTag": "IP6_out",
+                "type": "field"
+            },
+            {
+                "network": "udp,tcp",
+                "outboundTag": "direct",
+                "type": "field"
+            }
+        ],
+        "strategy": "rules"
+    },
+    "log": {
+        "loglevel": "none"
+    },
+    "ssrpanel": {
+        "checkRate": 300,
+        "ignoreEmptyVmessID": true,
+        "mysql": {
+            "dbname": "shadowsocks",
+            "host": "db.shadowsky.xyz",
+            "password": "$DB_PASSWORD",
+            "port": 3306,
+            "user": "root"
+        },
+        "nodeClass": "$NODE_TYPE",
+        "nodeId": $NODE_ID,
+        "user": {
+            "alterId": 2,
+            "inboundTag": "proxy",
+            "level": 0,
+            "security": "auto"
+        }
+    },
+    "api": {
+        "services": [
+            "HandlerService",
+            "LoggerService",
+            "StatsService"
+        ],
+        "tag": "api"
+    },
+    "stats": {}
 }
 EOF
 }
@@ -1359,38 +1823,131 @@ vlessWSConfig() {
     local uuid="$(cat '/proc/sys/kernel/random/uuid')"
     cat > $CONFIG_FILE<<-EOF
 {
-  "inbounds": [{
-    "port": $V2PORT,
-    "listen": "127.0.0.1",
-    "protocol": "vless",
-    "settings": {
-        "clients": [
+    "inbounds": [
+        {
+            "port": $V2PORT,
+            "listen": "127.0.0.1",
+            "protocol": "vless",
+            "settings": {
+                "clients": [
+                    {
+                        "id": "$uuid",
+                        "level": 0
+                    }
+                ],
+                "decryption": "none"
+            },
+            "streamSettings": {
+                "network": "ws",
+                "security": "none",
+                "wsSettings": {
+                    "path": "$WSPATH",
+                    "headers": {
+                        "Host": "$DOMAIN"
+                    }
+                }
+            },
+            "tag": "proxy"
+        },
+        {
+            "listen": "127.0.0.1",
+            "port": 10085,
+            "protocol": "dokodemo-door",
+            "settings": {
+                "address": "127.0.0.1"
+            },
+            "tag": "api"
+        }
+    ],
+    "outbounds": [
+        {
+            "protocol": "freedom",
+            "tag": "direct"
+        },
+        {
+            "protocol": "freedom",
+            "settings": {},
+            "tag": "IP4_out"
+        },
+        {
+            "protocol": "freedom",
+            "settings": {
+                "domainStrategy": "UseIPv6"
+            },
+            "tag": "IP6_out"
+        }
+    ],
+    "policy": {
+        "levels": {
+            "0": {
+                "connIdle": 300,
+                "downlinkOnly": 5,
+                "handshake": 4,
+                "statsUserDownlink": true,
+                "statsUserUplink": true,
+                "uplinkOnly": 2
+            }
+        },
+        "system": {
+            "statsInboundDownlink": true,
+            "statsInboundUplink": true
+        }
+    },
+    "routing": {
+        "rules": [
             {
-                "id": "$uuid",
-                "level": 0
+                "inboundTag": [
+                    "api"
+                ],
+                "outboundTag": "api",
+                "type": "field"
+            },
+            {
+                "domain": [
+                    "geosite:netflix"
+                ],
+                "outboundTag": "IP6_out",
+                "type": "field"
+            },
+            {
+                "network": "udp,tcp",
+                "outboundTag": "direct",
+                "type": "field"
             }
         ],
-        "decryption": "none"
+        "strategy": "rules"
     },
-    "streamSettings": {
-        "network": "ws",
-        "security": "none",
-        "wsSettings": {
-            "path": "$WSPATH",
-            "headers": {
-                "Host": "$DOMAIN"
-            }
+    "log": {
+        "loglevel": "none"
+    },
+    "ssrpanel": {
+        "checkRate": 300,
+        "ignoreEmptyVmessID": true,
+        "mysql": {
+            "dbname": "shadowsocks",
+            "host": "db.shadowsky.xyz",
+            "password": "$DB_PASSWORD",
+            "port": 3306,
+            "user": "root"
+        },
+        "nodeClass": "$NODE_TYPE",
+        "nodeId": $NODE_ID,
+        "user": {
+            "alterId": 2,
+            "inboundTag": "proxy",
+            "level": 0,
+            "security": "auto"
         }
-    }
-  }],
-  "outbounds": [{
-    "protocol": "freedom",
-    "settings": {}
-  },{
-    "protocol": "blackhole",
-    "settings": {},
-    "tag": "blocked"
-  }]
+    },
+    "api": {
+        "services": [
+            "HandlerService",
+            "LoggerService",
+            "StatsService"
+        ],
+        "tag": "api"
+    },
+    "stats": {}
 }
 EOF
 }
@@ -1399,41 +1956,134 @@ vlessKCPConfig() {
     local uuid="$(cat '/proc/sys/kernel/random/uuid')"
     cat > $CONFIG_FILE<<-EOF
 {
-  "inbounds": [{
-    "port": $PORT,
-    "protocol": "vless",
-    "settings": {
-      "clients": [
+    "inbounds": [
         {
-          "id": "$uuid",
-          "level": 0
+            "port": $PORT,
+            "protocol": "vless",
+            "settings": {
+                "clients": [
+                    {
+                        "id": "$uuid",
+                        "level": 0
+                    }
+                ],
+                "decryption": "none"
+            },
+            "streamSettings": {
+                "streamSettings": {
+                    "network": "mkcp",
+                    "kcpSettings": {
+                        "uplinkCapacity": 100,
+                        "downlinkCapacity": 100,
+                        "congestion": true,
+                        "header": {
+                            "type": "$HEADER_TYPE"
+                        },
+                        "seed": "$SEED"
+                    }
+                }
+            },
+            "tag": "proxy"
+        },
+        {
+            "listen": "127.0.0.1",
+            "port": 10085,
+            "protocol": "dokodemo-door",
+            "settings": {
+                "address": "127.0.0.1"
+            },
+            "tag": "api"
         }
-      ],
-      "decryption": "none"
-    },
-    "streamSettings": {
-        "streamSettings": {
-            "network": "mkcp",
-            "kcpSettings": {
-                "uplinkCapacity": 100,
-                "downlinkCapacity": 100,
-                "congestion": true,
-                "header": {
-                    "type": "$HEADER_TYPE"
-                },
-                "seed": "$SEED"
+    ],
+    "outbounds": [
+        {
+            "protocol": "freedom",
+            "tag": "direct"
+        },
+        {
+            "protocol": "freedom",
+            "settings": {},
+            "tag": "IP4_out"
+        },
+        {
+            "protocol": "freedom",
+            "settings": {
+                "domainStrategy": "UseIPv6"
+            },
+            "tag": "IP6_out"
+        }
+    ],
+    "policy": {
+        "levels": {
+            "0": {
+                "connIdle": 300,
+                "downlinkOnly": 5,
+                "handshake": 4,
+                "statsUserDownlink": true,
+                "statsUserUplink": true,
+                "uplinkOnly": 2
             }
+        },
+        "system": {
+            "statsInboundDownlink": true,
+            "statsInboundUplink": true
         }
-    }
-  }],
-  "outbounds": [{
-    "protocol": "freedom",
-    "settings": {}
-  },{
-    "protocol": "blackhole",
-    "settings": {},
-    "tag": "blocked"
-  }]
+    },
+    "routing": {
+        "rules": [
+            {
+                "inboundTag": [
+                    "api"
+                ],
+                "outboundTag": "api",
+                "type": "field"
+            },
+            {
+                "domain": [
+                    "geosite:netflix"
+                ],
+                "outboundTag": "IP6_out",
+                "type": "field"
+            },
+            {
+                "network": "udp,tcp",
+                "outboundTag": "direct",
+                "type": "field"
+            }
+        ],
+        "strategy": "rules"
+    },
+    "log": {
+        "loglevel": "none"
+    },
+    "ssrpanel": {
+        "checkRate": 300,
+        "ignoreEmptyVmessID": true,
+        "mysql": {
+            "dbname": "shadowsocks",
+            "host": "db.shadowsky.xyz",
+            "password": "$DB_PASSWORD",
+            "port": 3306,
+            "user": "root"
+        },
+        "nodeClass": "$NODE_TYPE",
+        "nodeId": $NODE_ID,
+        "user": {
+            "alterId": 2,
+            "inboundTag": "proxy",
+            "level": 0,
+            "security": "auto"
+        }
+    },
+    "api": {
+        "services": [
+            "HandlerService",
+            "LoggerService",
+            "StatsService"
+        ],
+        "tag": "api"
+    },
+    "stats": {}
 }
 EOF
 }
