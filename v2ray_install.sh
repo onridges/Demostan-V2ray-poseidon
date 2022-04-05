@@ -1016,7 +1016,7 @@ vmessConfig() {
         ],
         "tag": "api"
     },
-    "stats": {}
+    "stats": {},
     "inbounds": [
         {
             "port": $PORT,
