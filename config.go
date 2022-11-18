@@ -9,12 +9,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"github.com/v2fly/v2ray-core/v4/common/errors"
-	"github.com/v2fly/v2ray-core/v4/common/platform"
-	"github.com/v2fly/v2ray-core/v4/common/protocol"
-	"github.com/v2fly/v2ray-core/v4/main/confloader"
-	"github.com/v2fly/v2ray-core/v4/infra/conf"
-	json_reader "github.com/v2fly/v2ray-core/v4/infra/conf/json"
+	"github.com/xtls/xray-core/common/errors"
+	"github.com/xtls/xray-core/common/platform"
+	"github.com/xtls/xray-core/common/protocol"
+	"github.com/xtls/xray-core/main/confloader"
+	"github.com/xtls/xray-core/infra/conf"
+	json_reader "github.com/xtls/xray-core/infra/conf/json"
 )
 
 var (

@@ -3,9 +3,9 @@ package ssrpanel
 import (
 	"context"
 	"google.golang.org/grpc"
-	"github.com/v2fly/v2ray-core/v4/app/proxyman/command"
-	"github.com/v2fly/v2ray-core/v4/common/protocol"
-	"github.com/v2fly/v2ray-core/v4/common/serial"
+	"github.com/xtls/xray-core/app/proxyman/command"
+	"github.com/xtls/xray-core/common/protocol"
+	"github.com/xtls/xray-core/common/serial"
 )
 
 type HandlerServiceClient struct {
