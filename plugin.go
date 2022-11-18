@@ -36,7 +36,7 @@ func run() error {
 
 	go func() {
 		apiInbound := getInboundConfigByTag(cfg.v2rayConfig.API.Tag, cfg.v2rayConfig.InboundConfigs)
-		gRPCAddr := fmt.Sprintf("%s:%d", apiInbound.ListenOn.String(), apiInbound.PortRange.From)
+		gRPCAddr := fmt.Sprintf("%s:%d", apiInbound.ListenOn.String(), apiInbound.PortList.PortRange.From)
 		gRPCConn, err := connectGRPC(gRPCAddr, 10*time.Second)
 		if err != nil {
 			if s, ok := status.FromError(err); ok {
