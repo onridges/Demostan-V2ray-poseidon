@@ -251,7 +251,7 @@ func (p *Panel) convertUser(userModel UserModel) *protocol.User {
 		Email: userModel.Email,
 		Account: serial.ToTypedMessage(&vless.Account{
 			Id:         userModel.VmessID,
-			Flow:       "xtls-rprx-origin",
+			Flow:       userCfg.Flow,
 			Encryption: "none",
 		}),
 	}
