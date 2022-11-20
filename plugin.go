@@ -2,10 +2,11 @@ package ssrpanel
 
 import (
 	"fmt"
-	"google.golang.org/grpc/status"
 	"os"
 	"time"
+
 	"github.com/xtls/xray-core/common/errors"
+	"google.golang.org/grpc/status"
 )
 
 func init() {
@@ -33,10 +34,11 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	newError("NewMySQLConn...").AtInfo().WriteToLog()
 
 	go func() {
 		apiInbound := getInboundConfigByTag(cfg.v2rayConfig.API.Tag, cfg.v2rayConfig.InboundConfigs)
-		gRPCAddr := fmt.Sprintf("%s:%d", apiInbound.ListenOn.String(), apiInbound.PortList.PortRange.From)
+		gRPCAddr := fmt.Sprintf("%s:%d", apiInbound.ListenOn.String(), apiInbound.PortList.Range[0].From)
 		gRPCConn, err := connectGRPC(gRPCAddr, 10*time.Second)
 		if err != nil {
 			if s, ok := status.FromError(err); ok {

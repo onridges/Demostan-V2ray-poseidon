@@ -2,10 +2,11 @@ package ssrpanel
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/go-sql-driver/mysql"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/mysql"
-	"time"
 )
 
 type MySQLConfig struct {
@@ -17,7 +18,7 @@ type MySQLConfig struct {
 }
 
 func (c *MySQLConfig) FormatDSN() (string, error) {
-	loc, err := time.LoadLocation("Asia/Shanghai")
+	loc, err := time.LoadLocation("UTC")
 	if err != nil {
 		return "", err
 	}

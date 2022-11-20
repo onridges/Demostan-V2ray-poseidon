@@ -9,12 +9,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
 	"github.com/xtls/xray-core/common/errors"
 	"github.com/xtls/xray-core/common/platform"
 	"github.com/xtls/xray-core/common/protocol"
-	"github.com/xtls/xray-core/main/confloader"
 	"github.com/xtls/xray-core/infra/conf"
 	json_reader "github.com/xtls/xray-core/infra/conf/json"
+	"github.com/xtls/xray-core/main/confloader"
 )
 
 var (
@@ -29,6 +30,7 @@ var (
 
 type UserConfig struct {
 	InboundTag     string `json:"inboundTag"`
+	Flow           string `json:"flow"`
 	Level          uint32 `json:"level"`
 	AlterID        uint32 `json:"alterId"`
 	SecurityStr    string `json:"securityConfig"`
@@ -60,7 +62,7 @@ type Config struct {
 	MySQL              *MySQLConfig `json:"mysql"`
 	UserConfig         *UserConfig  `json:"user"`
 	IgnoreEmptyVmessID bool         `json:"ignoreEmptyVmessID"`
-	NodeClass 		   string       `json:"NodeClass"`
+	NodeClass          string       `json:"NodeClass"`
 	v2rayConfig        *conf.Config
 }
 
@@ -119,7 +121,7 @@ func checkCfg(cfg *Config) error {
 	} else if apiInbound.Protocol != "dokodemo-door" {
 		return errors.New(fmt.Sprintf("The protocol of inbound tagged %s must be \"dokodemo-door\"", apiTag))
 	} else {
-		if apiInbound.ListenOn == nil || apiInbound.PortList.PortRange == nil {
+		if apiInbound.ListenOn == nil || apiInbound.PortList.Range == nil {
 			return errors.New(fmt.Sprintf("Fields, \"listen\" and \"port\", of inbound tagged %s must be set", apiTag))
 		}
 	}

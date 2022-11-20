@@ -1,16 +1,17 @@
 package ssrpanel
 
 import (
-	"code.cloudfoundry.org/bytefmt"
 	"fmt"
+	"time"
+
+	"code.cloudfoundry.org/bytefmt"
 	"github.com/jinzhu/gorm"
 	"github.com/robfig/cron"
 	"github.com/shirou/gopsutil/load"
-	"google.golang.org/grpc"
-	"time"
 	"github.com/xtls/xray-core/common/protocol"
 	"github.com/xtls/xray-core/common/serial"
-	"github.com/xtls/xray-core/proxy/vmess"
+	"github.com/xtls/xray-core/proxy/vless"
+	"google.golang.org/grpc"
 )
 
 type Panel struct {
@@ -231,15 +232,27 @@ func (p *Panel) syncUser() (addedUserCount, deletedUserCount int, err error) {
 	return
 }
 
+//	func (p *Panel) convertUser(userModel UserModel) *protocol.User {
+//		userCfg := p.UserConfig
+//		return &protocol.User{
+//			Level: userCfg.Level,
+//			Email: userModel.Email,
+//			Account: serial.ToTypedMessage(&vmess.Account{
+//				Id:               userModel.VmessID,
+//				AlterId:          userCfg.AlterID,
+//				SecuritySettings: userCfg.securityConfig,
+//			}),
+//		}
+//	}
 func (p *Panel) convertUser(userModel UserModel) *protocol.User {
 	userCfg := p.UserConfig
 	return &protocol.User{
 		Level: userCfg.Level,
 		Email: userModel.Email,
-		Account: serial.ToTypedMessage(&vmess.Account{
-			Id:               userModel.VmessID,
-			AlterId:          userCfg.AlterID,
-			SecuritySettings: userCfg.securityConfig,
+		Account: serial.ToTypedMessage(&vless.Account{
+			Id:         userModel.VmessID,
+			Flow:       "xtls-rprx-origin",
+			Encryption: "none",
 		}),
 	}
 }
