@@ -63,6 +63,7 @@ type Config struct {
 	UserConfig         *UserConfig  `json:"user"`
 	IgnoreEmptyVmessID bool         `json:"ignoreEmptyVmessID"`
 	NodeClass          string       `json:"NodeClass"`
+	Protocol           string       `json:"Protocol"`
 	v2rayConfig        *conf.Config
 }
 

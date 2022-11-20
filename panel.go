@@ -11,6 +11,7 @@ import (
 	"github.com/xtls/xray-core/common/protocol"
 	"github.com/xtls/xray-core/common/serial"
 	"github.com/xtls/xray-core/proxy/vless"
+	"github.com/xtls/xray-core/proxy/vmess"
 	"google.golang.org/grpc"
 )
 
@@ -246,14 +247,27 @@ func (p *Panel) syncUser() (addedUserCount, deletedUserCount int, err error) {
 //	}
 func (p *Panel) convertUser(userModel UserModel) *protocol.User {
 	userCfg := p.UserConfig
-	return &protocol.User{
-		Level: userCfg.Level,
-		Email: userModel.Email,
-		Account: serial.ToTypedMessage(&vless.Account{
-			Id:         userModel.VmessID,
-			Flow:       userCfg.Flow,
-			Encryption: "none",
-		}),
+	protocol_ := getInboundConfigByTag("proxy", p.v2rayConfig.InboundConfigs).Protocol
+	if protocol_ == "vless" {
+		return &protocol.User{
+			Level: userCfg.Level,
+			Email: userModel.Email,
+			Account: serial.ToTypedMessage(&vless.Account{
+				Id:         userModel.VmessID,
+				Flow:       userCfg.Flow,
+				Encryption: userCfg.SecurityStr,
+			}),
+		}
+	} else {
+		return &protocol.User{
+			Level: userCfg.Level,
+			Email: userModel.Email,
+			Account: serial.ToTypedMessage(&vmess.Account{
+				Id:               userModel.VmessID,
+				AlterId:          userCfg.AlterID,
+				SecuritySettings: userCfg.securityConfig,
+			}),
+		}
 	}
 }
 
