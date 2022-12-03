@@ -892,7 +892,7 @@ User=root
 #User=nobody
 NoNewPrivileges=true
 Environment="V2RAY_VMESS_AEAD_FORCED=false"
-ExecStart=/usr/bin/v2ray/v2ray run -config=${$CONFIG_FILE}
+ExecStart=/usr/bin/v2ray/v2ray run -config=$CONFIG_FILE
 Restart=on-failure
 
 [Install]
