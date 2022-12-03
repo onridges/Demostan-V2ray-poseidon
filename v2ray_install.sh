@@ -179,9 +179,9 @@ getVersion() {
     CUR_VER="$(normalizeVersion "$(echo "$VER" | head -n 1 | cut -d " " -f2)")"
     TAG_URL="${V6_PROXY}https://api.github.com/repos/demonstan/v2ray-poseidon/releases/latest"
     NEW_VER="$(normalizeVersion "$(curl -s "${TAG_URL}" --connect-timeout 10| tr ',' '\n' | grep 'tag_name' | cut -d\" -f4)")"
-    if [[ "$XTLS" = "true" ]]; then
-        NEW_VER=v4.32.1
-    fi
+    # if [[ "$XTLS" = "true" ]]; then
+    #     NEW_VER=v4.32.1
+    # fi
 
     if [[ $? -ne 0 ]] || [[ $NEW_VER == "" ]]; then
         colorEcho $RED " 检查V2ray版本信息失败，请检查网络"
