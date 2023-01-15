@@ -144,6 +144,8 @@ func getInboundConfigByTag(apiTag string, inbounds []conf.InboundDetourConfig) *
 }
 
 func getConfigFilePath() string {
+	commandLine.Parse(os.Args[2:])
+
 	if len(*configFile) > 0 {
 		return *configFile
 	}
