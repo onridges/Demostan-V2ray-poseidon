@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 #====================================================
-#	System Request:Debian 10+/Ubuntu 20.04+/Centos 8+
+#	System Request:Debian 9+/Ubuntu 18.04+/Centos 7+
 #	Author:	wulabing
 #	Dscription: Xray onekey Management
 #	email: admin@wulabing.com
@@ -27,17 +27,14 @@ OK="${Green}[OK]${Font}"
 ERROR="${Red}[ERROR]${Font}"
 
 # 变量
-shell_version="0.2.2"
-github_branch="nginx_forward"
+shell_version="1.3.11"
+github_branch="main"
 xray_conf_dir="/usr/local/etc/xray"
 website_dir="/www/xray_web/"
 xray_access_log="/var/log/xray/access.log"
 xray_error_log="/var/log/xray/error.log"
 cert_dir="/usr/local/etc/xray"
 domain_tmp_dir="/usr/local/etc/xray"
-nginx_conf_dir="/etc/nginx/conf/conf.d"
-compatible_nginx_conf="no"
-
 cert_group="nobody"
 random_num=$((RANDOM % 12 + 4))
 
@@ -48,6 +45,8 @@ function shell_mode_check() {
   if [ -f ${xray_conf_dir}/config.json ]; then
     if [ "$(grep -c "wsSettings" ${xray_conf_dir}/config.json)" -ge 1 ]; then
       shell_mode="ws"
+    else
+      shell_mode="tcp"
     fi
   else
     shell_mode="None"
@@ -84,25 +83,17 @@ function system_check() {
   source '/etc/os-release'
 
   if [[ "${ID}" == "centos" && ${VERSION_ID} -ge 7 ]]; then
-    if [[ ${VERSION_ID} -ge 8 ]]; then
-      compatible_nginx_conf="no"
-    else
-      compatible_nginx_conf="yes"
-    fi
     print_ok "当前系统为 Centos ${VERSION_ID} ${VERSION}"
     INS="yum install -y"
+    ${INS} wget
     wget -N -P /etc/yum.repos.d/ https://raw.githubusercontent.com/wulabing/Xray_onekey/${github_branch}/basic/nginx.repo
+
+
   elif [[ "${ID}" == "ol" ]]; then
     print_ok "当前系统为 Oracle Linux ${VERSION_ID} ${VERSION}"
     INS="yum install -y"
-    compatible_nginx_conf="yes"
     wget -N -P /etc/yum.repos.d/ https://raw.githubusercontent.com/wulabing/Xray_onekey/${github_branch}/basic/nginx.repo
   elif [[ "${ID}" == "debian" && ${VERSION_ID} -ge 9 ]]; then
-    if [[ ${VERSION_ID} -ge 10 ]]; then
-      compatible_nginx_conf="no"
-    else
-      compatible_nginx_conf="yes"
-    fi
     print_ok "当前系统为 Debian ${VERSION_ID} ${VERSION}"
     INS="apt install -y"
     # 清除可能的遗留问题
@@ -118,13 +109,9 @@ function system_check() {
     | tee /etc/apt/preferences.d/99nginx
 
     apt update
+
   elif [[ "${ID}" == "ubuntu" && $(echo "${VERSION_ID}" | cut -d '.' -f1) -ge 18 ]]; then
     print_ok "当前系统为 Ubuntu ${VERSION_ID} ${UBUNTU_CODENAME}"
-    if [[ ${VERSION_ID} -ge 20 ]]; then
-      compatible_nginx_conf="no"
-    else
-      compatible_nginx_conf="yes"
-    fi
     INS="apt install -y"
     # 清除可能的遗留问题
     rm -f /etc/apt/sources.list.d/nginx.list
@@ -165,15 +152,13 @@ function nginx_install() {
     judge "Nginx 安装"
   else
     print_ok "Nginx 已存在"
-    # 防止部分异常
-    ${INS} nginx
   fi
   # 遗留问题处理
   mkdir -p /etc/nginx/conf.d >/dev/null 2>&1
 }
 function dependency_install() {
-  ${INS} wget lsof tar
-  judge "安装 wget lsof tar"
+  ${INS} lsof tar
+  judge "安装 lsof tar"
 
   if [[ "${ID}" == "centos" || "${ID}" == "ol" ]]; then
     ${INS} crontabs
@@ -214,7 +199,7 @@ function dependency_install() {
     ${INS} pcre pcre-devel zlib-devel epel-release openssl openssl-devel
   elif [[ "${ID}" == "ol" ]]; then
     ${INS} pcre pcre-devel zlib-devel openssl openssl-devel
-    # Oracle Linux 不同日期版本的 VERSION_ID 比较乱 直接暴力处理
+    # Oracle Linux 不同日期版本的 VERSION_ID 比较乱 直接暴力处理。如出现问题或有更好的方案，请提交 Issue。
     yum-config-manager --enable ol7_developer_EPEL >/dev/null 2>&1
     yum-config-manager --enable ol8_developer_EPEL >/dev/null 2>&1
   else
@@ -239,7 +224,7 @@ function basic_optimization() {
   echo '* soft nofile 65536' >>/etc/security/limits.conf
   echo '* hard nofile 65536' >>/etc/security/limits.conf
 
-  # 关闭 Selinux
+  # RedHat 系发行版关闭 SELinux
   if [[ "${ID}" == "centos" || "${ID}" == "ol" ]]; then
     sed -i 's/^SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
     setenforce 0
@@ -257,8 +242,8 @@ function domain_check() {
     wg-quick down wgcf >/dev/null 2>&1
     print_ok "已关闭 wgcf-warp"
   fi
-  local_ipv4=$(curl -s4m8 http://ip.gs)
-  local_ipv6=$(curl -s6m8 http://ip.gs)
+  local_ipv4=$(curl -4 ip.sb)
+  local_ipv6=$(curl -6 ip.sb)
   if [[ -z ${local_ipv4} && -n ${local_ipv6} ]]; then
     # 纯IPv6 VPS，自动添加DNS64服务器以备acme.sh申请证书使用
     echo -e nameserver 2a01:4f8:c2c:123f::1 > /etc/resolv.conf
@@ -339,29 +324,33 @@ function modify_UUID() {
   judge "Xray TCP UUID 修改"
 }
 
+function modify_UUID_ws() {
+  cat ${xray_conf_dir}/config.json | jq 'setpath(["inbounds",1,"settings","clients",0,"id"];"'${UUID}'")' >${xray_conf_dir}/config_tmp.json
+  xray_tmp_config_file_check_and_use
+  judge "Xray ws UUID 修改"
+}
+
+function modify_fallback_ws() {
+  cat ${xray_conf_dir}/config.json | jq 'setpath(["inbounds",0,"settings","fallbacks",2,"path"];"'${WS_PATH}'")' >${xray_conf_dir}/config_tmp.json
+  xray_tmp_config_file_check_and_use
+  judge "Xray fallback_ws 修改"
+}
+
 function modify_ws() {
-  cat ${xray_conf_dir}/config.json | jq 'setpath(["inbounds",0,"streamSettings","wsSettings","path"];"'${WS_PATH}'")' >${xray_conf_dir}/config_tmp.json
+  cat ${xray_conf_dir}/config.json | jq 'setpath(["inbounds",1,"streamSettings","wsSettings","path"];"'${WS_PATH}'")' >${xray_conf_dir}/config_tmp.json
   xray_tmp_config_file_check_and_use
   judge "Xray ws 修改"
 }
 
-function modify_nginx_port() {
-  sed -i "/ssl http2;$/c \\\tlisten ${PORT} ssl http2;" ${nginx_conf}
-  sed -i "3c \\\tlisten [::]:${PORT} ssl http2;" ${nginx_conf}
-  judge "Xray port 修改"
+function configure_nginx() {
+  nginx_conf="/etc/nginx/conf.d/${domain}.conf"
+  cd /etc/nginx/conf.d/ && rm -f ${domain}.conf && wget -O ${domain}.conf https://raw.githubusercontent.com/wulabing/Xray_onekey/${github_branch}/config/web.conf
+  sed -i "s/xxx/${domain}/g" ${nginx_conf}
+  judge "Nginx 配置 修改"
+  
+  systemctl enable nginx
+  systemctl restart nginx
 }
-
-function modify_nginx_ws(){
-  sed -i "/location/c \\\tlocation ${WS_PATH}" ${nginx_conf}
-  judge "Nginx ws 修改"
-}
-
-function modify_nginx_other() {
-  modify_nginx_ws
-  sed -i "/proxy_pass/c \\\tproxy_pass http://127.0.0.1:${inbound_port};" ${nginx_conf}
-}
-
-
 
 function modify_port() {
   read -rp "请输入端口号(默认：443)：" PORT
@@ -371,48 +360,30 @@ function modify_port() {
     exit 1
   fi
   port_exist_check $PORT
-  modify_nginx_port
-}
-
-function configure_nginx_temp(){
-  nginx_conf="/etc/nginx/conf.d/${domain}.conf"
-  cd /etc/nginx/conf.d/ && rm -f ${domain}.conf
-  wget -O ${domain}.conf https://raw.githubusercontent.com/wulabing/Xray_onekey/${github_branch}/config/web_temp.conf
-  sed -i "s/xxx/${domain}/g" ${nginx_conf}
-}
-
-function configure_nginx() {
-  nginx_conf="/etc/nginx/conf.d/${domain}.conf"
-  cd /etc/nginx/conf.d/ && rm -f ${domain}.conf
-  if [[ $compatible_nginx_conf == "yes" ]]; then
-    wget -O ${domain}.conf https://raw.githubusercontent.com/wulabing/Xray_onekey/${github_branch}/config/web_compatible.conf
-  elif [[ $compatible_nginx_conf == "no" ]]; then
-    wget -O ${domain}.conf https://raw.githubusercontent.com/wulabing/Xray_onekey/${github_branch}/config/web.conf
-  fi
-  sed -i "s/xxx/${domain}/g" ${nginx_conf}
-  modify_port
-  modify_nginx_other
-  systemctl restart nginx
-}
-
-
-function modify_inbound_port() {
-  inbound_port=$((RANDOM + 10000))
-  cat ${xray_conf_dir}/config.json | jq 'setpath(["inbounds",0,"port"];'${inbound_port}')' >${xray_conf_dir}/config_tmp.json
+  cat ${xray_conf_dir}/config.json | jq 'setpath(["inbounds",0,"port"];'${PORT}')' >${xray_conf_dir}/config_tmp.json
   xray_tmp_config_file_check_and_use
-  judge "Xray inbound_port 修改"
+  judge "Xray 端口 修改"
+}
+
+function configure_xray() {
+  cd /usr/local/etc/xray && rm -f config.json && wget -O config.json https://raw.githubusercontent.com/wulabing/Xray_onekey/${github_branch}/config/xray_xtls-rprx-direct.json
+  modify_UUID
+  modify_port
 }
 
 function configure_xray_ws() {
-  cd /usr/local/etc/xray && rm -f config.json && wget -O config.json https://raw.githubusercontent.com/wulabing/Xray_onekey/${github_branch}/config/xray_tls_ws.json
+  cd /usr/local/etc/xray && rm -f config.json && wget -O config.json https://raw.githubusercontent.com/wulabing/Xray_onekey/${github_branch}/config/xray_tls_ws_mix-rprx-direct.json
   modify_UUID
+  modify_UUID_ws
+  modify_port
+  modify_fallback_ws
   modify_ws
-  modify_inbound_port
 }
 
 function xray_install() {
   print_ok "安装 Xray"
-  curl -L https://raw.githubusercontent.com/demonstan/v2ray-poseidon/xtls/install-release.sh | bash -s -- install
+  # curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh | bash -s -- Install
+  bash install-release.sh install
   # judge "Xray 安装"
 
   # 用于生成 Xray 的导入链接
@@ -429,19 +400,21 @@ function ssl_install() {
   #  fi
   #  judge "安装 SSL 证书生成脚本依赖"
 
-  curl -L get.acme.sh | bash
+  curl -L https://get.acme.sh | bash
   judge "安装 SSL 证书生成脚本"
 }
 
 function acme() {
   "$HOME"/.acme.sh/acme.sh --set-default-ca --server letsencrypt
 
+  sed -i "6s/^/#/" "$nginx_conf"
+  sed -i "6a\\\troot $website_dir;" "$nginx_conf"
   systemctl restart nginx
 
-  if "$HOME"/.acme.sh/acme.sh --issue -d "${domain}" -k ec-256 --webroot "$website_dir" --force; then
+  if "$HOME"/.acme.sh/acme.sh --issue --insecure -d "${domain}" --webroot "$website_dir" -k ec-256 --force; then
     print_ok "SSL 证书生成成功"
     sleep 2
-    if "$HOME"/.acme.sh/acme.sh --installcert -d "${domain}" --fullchainpath /ssl/xray.crt --keypath /ssl/xray.key --reloadcmd "systemctl restart xray" --reloadcmd "systemctl restart nginx" --ecc --force; then
+    if "$HOME"/.acme.sh/acme.sh --installcert -d "${domain}" --fullchainpath /ssl/xray.crt --keypath /ssl/xray.key --reloadcmd "systemctl restart xray" --ecc --force; then
       print_ok "SSL 证书配置成功"
       sleep 2
       if [[ -n $(type -P wgcf) && -n $(type -P wg-quick) ]]; then
@@ -449,10 +422,10 @@ function acme() {
         print_ok "已启动 wgcf-warp"
       fi
     fi
-  elif "$HOME"/.acme.sh/acme.sh --issue -d "${domain}" -k ec-256 --webroot "$website_dir" --force --listen-v6; then
+  elif "$HOME"/.acme.sh/acme.sh --issue --insecure -d "${domain}" --webroot "$website_dir" -k ec-256 --force --listen-v6; then
     print_ok "SSL 证书生成成功"
     sleep 2
-    if "$HOME"/.acme.sh/acme.sh --installcert -d "${domain}" --fullchainpath /ssl/xray.crt --keypath /ssl/xray.key --reloadcmd "systemctl restart xray" --reloadcmd "systemctl restart nginx" --ecc --force; then
+    if "$HOME"/.acme.sh/acme.sh --installcert -d "${domain}" --fullchainpath /ssl/xray.crt --keypath /ssl/xray.key --reloadcmd "systemctl restart xray" --ecc --force; then
       print_ok "SSL 证书配置成功"
       sleep 2
       if [[ -n $(type -P wgcf) && -n $(type -P wg-quick) ]]; then
@@ -470,6 +443,8 @@ function acme() {
     exit 1
   fi
 
+  sed -i "7d" "$nginx_conf"
+  sed -i "6s/#//" "$nginx_conf"
 }
 
 function ssl_judge_and_install() {
@@ -494,9 +469,11 @@ function ssl_judge_and_install() {
   elif [[ -f "$HOME/.acme.sh/${domain}_ecc/${domain}.key" && -f "$HOME/.acme.sh/${domain}_ecc/${domain}.cer" ]]; then
     echo "证书文件已存在"
     "$HOME"/.acme.sh/acme.sh --installcert -d "${domain}" --fullchainpath /ssl/xray.crt --keypath /ssl/xray.key --ecc
-    judge "证书应用"
+    judge "证书启用"
   else
     mkdir /ssl
+    cp -a $cert_dir/self_signed_cert.pem /ssl/xray.crt
+    cp -a $cert_dir/self_signed_key.pem /ssl/xray.key
     ssl_install
     acme
   fi
@@ -513,7 +490,7 @@ function generate_certificate() {
   fi
   echo $signedcert | jq '.certificate[]' | sed 's/\"//g' | tee $cert_dir/self_signed_cert.pem
   echo $signedcert | jq '.key[]' | sed 's/\"//g' >$cert_dir/self_signed_key.pem
-  openssl x509 -in $cert_dir/self_signed_cert.pem -noout || print_error "生成自签名证书失败" && exit 1
+  openssl x509 -in $cert_dir/self_signed_cert.pem -noout || (print_error "生成自签名证书失败" && exit 1)
   print_ok "生成自签名证书成功"
   chown nobody.$cert_group $cert_dir/self_signed_cert.pem
   chown nobody.$cert_group $cert_dir/self_signed_key.pem
@@ -554,7 +531,7 @@ function xray_uninstall() {
   read -r uninstall_acme
   case $uninstall_acme in
   [yY][eE][sS] | [yY])
-    /root/.acme.sh/acme.sh --uninstall
+    "$HOME"/.acme.sh/acme.sh --uninstall
     rm -rf /root/.acme.sh
     rm -rf /ssl/
     ;;
@@ -571,14 +548,48 @@ function restart_all() {
   judge "Xray 启动"
 }
 
+function vless_xtls-rprx-direct_link() {
+  UUID=$(cat ${xray_conf_dir}/config.json | jq .inbounds[0].settings.clients[0].id | tr -d '"')
+  PORT=$(cat ${xray_conf_dir}/config.json | jq .inbounds[0].port)
+  FLOW=$(cat ${xray_conf_dir}/config.json | jq .inbounds[0].settings.clients[0].flow | tr -d '"')
+  DOMAIN=$(cat ${domain_tmp_dir}/domain)
+
+  print_ok "URL 链接 (VLESS + TCP + TLS)"
+  print_ok "vless://$UUID@$DOMAIN:$PORT?security=tls&flow=$FLOW#TLS_wulabing-$DOMAIN"
+
+  print_ok "URL 链接 (VLESS + TCP + XTLS)"
+  print_ok "vless://$UUID@$DOMAIN:$PORT?security=xtls&flow=$FLOW#XTLS_wulabing-$DOMAIN"
+  print_ok "-------------------------------------------------"
+  print_ok "URL 二维码 (VLESS + TCP + TLS) （请在浏览器中访问）"
+  print_ok "https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=vless://$UUID@$DOMAIN:$PORT?security=tls%26flow=$FLOW%23TLS_wulabing-$DOMAIN"
+
+  print_ok "URL 二维码 (VLESS + TCP + XTLS) （请在浏览器中访问）"
+  print_ok "https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=vless://$UUID@$DOMAIN:$PORT?security=xtls%26flow=$FLOW%23XTLS_wulabing-$DOMAIN"
+}
+
+function vless_xtls-rprx-direct_information() {
+  UUID=$(cat ${xray_conf_dir}/config.json | jq .inbounds[0].settings.clients[0].id | tr -d '"')
+  PORT=$(cat ${xray_conf_dir}/config.json | jq .inbounds[0].port)
+  FLOW=$(cat ${xray_conf_dir}/config.json | jq .inbounds[0].settings.clients[0].flow | tr -d '"')
+  DOMAIN=$(cat ${domain_tmp_dir}/domain)
+
+  echo -e "${Red} Xray 配置信息 ${Font}"
+  echo -e "${Red} 地址（address）:${Font}  $DOMAIN"
+  echo -e "${Red} 端口（port）：${Font}  $PORT"
+  echo -e "${Red} 用户 ID（UUID）：${Font} $UUID"
+  echo -e "${Red} 流控（flow）：${Font} $FLOW"
+  echo -e "${Red} 加密方式（security）：${Font} none "
+  echo -e "${Red} 传输协议（network）：${Font} tcp "
+  echo -e "${Red} 伪装类型（type）：${Font} none "
+  echo -e "${Red} 底层传输安全：${Font} xtls 或 tls"
+}
 
 function ws_information() {
-  DOMAIN=$(cat ${domain_tmp_dir}/domain)
   UUID=$(cat ${xray_conf_dir}/config.json | jq .inbounds[0].settings.clients[0].id | tr -d '"')
-  PORT=$(cat "/etc/nginx/conf.d/${DOMAIN}.conf" | grep 'ssl http2' | awk -F ' ' '{print $2}' )
+  PORT=$(cat ${xray_conf_dir}/config.json | jq .inbounds[0].port)
   FLOW=$(cat ${xray_conf_dir}/config.json | jq .inbounds[0].settings.clients[0].flow | tr -d '"')
-  WS_PATH=$(cat ${xray_conf_dir}/config.json | jq .inbounds[0].streamSettings.wsSettings.path | tr -d '"')
-
+  WS_PATH=$(cat ${xray_conf_dir}/config.json | jq .inbounds[0].settings.fallbacks[2].path | tr -d '"')
+  DOMAIN=$(cat ${domain_tmp_dir}/domain)
 
   echo -e "${Red} Xray 配置信息 ${Font}"
   echo -e "${Red} 地址（address）:${Font}  $DOMAIN"
@@ -592,32 +603,52 @@ function ws_information() {
 }
 
 function ws_link() {
-  DOMAIN=$(cat ${domain_tmp_dir}/domain)
   UUID=$(cat ${xray_conf_dir}/config.json | jq .inbounds[0].settings.clients[0].id | tr -d '"')
-  PORT=$(cat "/etc/nginx/conf.d/${DOMAIN}.conf" | grep 'ssl http2' | awk -F ' ' '{print $2}' )
+  PORT=$(cat ${xray_conf_dir}/config.json | jq .inbounds[0].port)
   FLOW=$(cat ${xray_conf_dir}/config.json | jq .inbounds[0].settings.clients[0].flow | tr -d '"')
-  WS_PATH=$(cat ${xray_conf_dir}/config.json | jq .inbounds[0].streamSettings.wsSettings.path | tr -d '"')
+  WS_PATH=$(cat ${xray_conf_dir}/config.json | jq .inbounds[0].settings.fallbacks[2].path | tr -d '"')
   WS_PATH_WITHOUT_SLASH=$(echo $WS_PATH | tr -d '/')
+  DOMAIN=$(cat ${domain_tmp_dir}/domain)
 
-  print_ok "URL 链接（VLESS + WebSocket + TLS）"
+  print_ok "URL 链接 (VLESS + TCP + TLS)"
+  print_ok "vless://$UUID@$DOMAIN:$PORT?security=tls#TLS_wulabing-$DOMAIN"
+
+  print_ok "URL 链接 (VLESS + TCP + XTLS)"
+  print_ok "vless://$UUID@$DOMAIN:$PORT?security=xtls&flow=$FLOW#XTLS_wulabing-$DOMAIN"
+
+  print_ok "URL 链接 (VLESS + WebSocket + TLS)"
   print_ok "vless://$UUID@$DOMAIN:$PORT?type=ws&security=tls&path=%2f${WS_PATH_WITHOUT_SLASH}%2f#WS_TLS_wulabing-$DOMAIN"
-  print_ok "URL 二维码（VLESS + WebSocket + TLS）（请在浏览器中访问）"
+  print_ok "-------------------------------------------------"
+  print_ok "URL 二维码 (VLESS + TCP + TLS) （请在浏览器中访问）"
+  print_ok "https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=vless://$UUID@$DOMAIN:$PORT?security=tls%23TLS_wulabing-$DOMAIN"
+
+  print_ok "URL 二维码 (VLESS + TCP + XTLS) （请在浏览器中访问）"
+  print_ok "https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=vless://$UUID@$DOMAIN:$PORT?security=xtls%26flow=$FLOW%23XTLS_wulabing-$DOMAIN"
+
+  print_ok "URL 二维码 (VLESS + WebSocket + TLS) （请在浏览器中访问）"
   print_ok "https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=vless://$UUID@$DOMAIN:$PORT?type=ws%26security=tls%26path=%2f${WS_PATH_WITHOUT_SLASH}%2f%23WS_TLS_wulabing-$DOMAIN"
 }
 
+function basic_information() {
+  print_ok "VLESS+TCP+XTLS+Nginx 安装成功"
+  vless_xtls-rprx-direct_information
+  vless_xtls-rprx-direct_link
+}
+
 function basic_ws_information() {
-  print_ok "VLESS + TCP + TLS + Nginx + WebSocket 安装成功"
+  print_ok "VLESS+TCP+TLS+Nginx with WebSocket 混合模式 安装成功"
   ws_information
   print_ok "————————————————————————"
+  vless_xtls-rprx-direct_information
   ws_link
 }
 
 function show_access_log() {
-  [ -f ${xray_access_log} ] && tail -f ${xray_access_log} || echo -e "${RedBG}log文件不存在${Font}"
+  [ -f ${xray_access_log} ] && tail -f ${xray_access_log} || echo -e "${RedBG}log 文件不存在${Font}"
 }
 
 function show_error_log() {
-  [ -f ${xray_error_log} ] && tail -f ${xray_error_log} || echo -e "${RedBG}log文件不存在${Font}"
+  [ -f ${xray_error_log} ] && tail -f ${xray_error_log} || echo -e "${RedBG}log 文件不存在${Font}"
 }
 
 function bbr_boost_sh() {
@@ -629,6 +660,23 @@ function mtproxy_sh() {
   wget -N --no-check-certificate "https://github.com/wulabing/mtp/raw/master/mtproxy.sh" && chmod +x mtproxy.sh && bash mtproxy.sh
 }
 
+function install_xray() {
+  is_root
+  system_check
+  dependency_install
+  basic_optimization
+  domain_check
+  port_exist_check 80
+  xray_install
+  configure_xray
+  nginx_install
+  configure_nginx
+  configure_web
+  generate_certificate
+  ssl_judge_and_install
+  restart_all
+  basic_information
+}
 function install_xray_ws() {
   is_root
   system_check
@@ -639,14 +687,13 @@ function install_xray_ws() {
   xray_install
   configure_xray_ws
   nginx_install
-  configure_nginx_temp
-  configure_web
-  ssl_judge_and_install
   configure_nginx
+  configure_web
+  generate_certificate
+  ssl_judge_and_install
   restart_all
   basic_ws_information
 }
-
 menu() {
   update_sh
   shell_mode_check
@@ -657,7 +704,8 @@ menu() {
   echo -e "当前已安装版本：${shell_mode}"
   echo -e "—————————————— 安装向导 ——————————————"""
   echo -e "${Green}0.${Font}  升级 脚本"
-  echo -e "${Green}1.${Font}  安装 Xray (VLESS + TCP + TLS + Nginx + WebSocket)"
+  echo -e "${Green}1.${Font}  安装 Xray (VLESS + TCP + XTLS / TLS + Nginx)"
+  echo -e "${Green}2.${Font}  安装 Xray (VLESS + TCP + XTLS / TLS + Nginx 及 VLESS + TCP + TLS + Nginx + WebSocket 回落并存模式)"
   echo -e "—————————————— 配置变更 ——————————————"
   echo -e "${Green}11.${Font} 变更 UUID"
   echo -e "${Green}13.${Font} 变更 连接端口"
@@ -669,11 +717,11 @@ menu() {
   #    echo -e "${Green}23.${Font}  查看 V2Ray 配置信息"
   echo -e "—————————————— 其他选项 ——————————————"
   echo -e "${Green}31.${Font} 安装 4 合 1 BBR、锐速安装脚本"
-  echo -e "${Yellow}32.${Font} 安装 MTproxy(不推荐使用,请相关用户关闭或卸载)"
+  echo -e "${Yellow}32.${Font} 安装 MTproxy （不推荐使用,请相关用户关闭或卸载）"
   echo -e "${Green}33.${Font} 卸载 Xray"
   echo -e "${Green}34.${Font} 更新 Xray-core"
-  echo -e "${Green}35.${Font} 安装 Xray-core 测试版(Pre)"
-  echo -e "${Green}36.${Font} 手动更新SSL证书"
+  echo -e "${Green}35.${Font} 安装 Xray-core 测试版 (Pre)"
+  echo -e "${Green}36.${Font} 手动更新 SSL 证书"
   echo -e "${Green}40.${Font} 退出"
   read -rp "请输入数字：" menu_num
   case $menu_num in
@@ -681,26 +729,34 @@ menu() {
     update_sh
     ;;
   1)
+    install_xray
+    ;;
+  2)
     install_xray_ws
     ;;
   11)
-    read -rp "请输入UUID:" UUID
-    modify_UUID
+    read -rp "请输入 UUID:" UUID
+    if [[ ${shell_mode} == "tcp" ]]; then
+      modify_UUID
+    elif [[ ${shell_mode} == "ws" ]]; then
+      modify_UUID
+      modify_UUID_ws
+    fi
     restart_all
     ;;
   13)
-    DOMAIN=$(cat ${domain_tmp_dir}/domain)
-    nginx_conf="/etc/nginx/conf.d/${DOMAIN}.conf"
     modify_port
     restart_all
     ;;
   14)
-    DOMAIN=$(cat ${domain_tmp_dir}/domain)
-    nginx_conf="/etc/nginx/conf.d/${DOMAIN}.conf"
-    read -rp "请输入路径(示例：/wulabing/ 要求两侧都包含/):" WS_PATH
-    modify_ws
-    modify_nginx_ws
-    restart_all
+    if [[ ${shell_mode} == "ws" ]]; then
+      read -rp "请输入路径(示例：/wulabing/ 要求两侧都包含 /):" WS_PATH
+      modify_fallback_ws
+      modify_ws
+      restart_all
+    else
+      print_error "当前模式不是 Websocket 模式"
+    fi
     ;;
   21)
     tail -f $xray_access_log
@@ -710,7 +766,11 @@ menu() {
     ;;
   23)
     if [[ -f $xray_conf_dir/config.json ]]; then
-      basic_ws_information
+      if [[ ${shell_mode} == "tcp" ]]; then
+        basic_information
+      elif [[ ${shell_mode} == "ws" ]]; then
+        basic_ws_information
+      fi
     else
       print_error "xray 配置文件不存在"
     fi
@@ -726,11 +786,11 @@ menu() {
     xray_uninstall
     ;;
   34)
-    bash -c "$(curl -L https://raw.githubusercontent.com/demonstan/v2ray-poseidon/xtls/install-release.sh)" - install
+    bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" - install
     restart_all
     ;;
   35)
-    bash -c "$(curl -L https://raw.githubusercontent.com/demonstan/v2ray-poseidon/xtls/install-release.sh)" - install --beta
+    bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" - install --beta
     restart_all
     ;;
   36)
