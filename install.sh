@@ -38,6 +38,12 @@ domain_tmp_dir="/usr/local/etc/xray"
 cert_group="nobody"
 random_num=$((RANDOM % 12 + 4))
 
+# 面板变量
+db_host="1.2.3.4"
+db_password="password"
+node_id=1
+node_class="A"
+
 VERSION=$(echo "${VERSION}" | awk -F "[()]" '{print $2}')
 WS_PATH="/$(head -n 10 /dev/urandom | md5sum | head -c ${random_num})/"
 
@@ -275,6 +281,17 @@ function domain_check() {
   fi
 }
 
+function get_panel_info() {
+  read -rp "请输入数据库地址:" db_host
+  read -rp "请输入数据库密码:" db_password
+
+  # 输入节点 ID
+  read -rp "请输入节点 ID:" node_id
+  # 输入节点类型, 默认 "B"
+  read -rp "请输入节点类型(默认 B):" node_type
+  [ -z "$node_type" ] && node_type="B"
+}
+
 function port_exist_check() {
   if [[ 0 -eq $(lsof -i:"$1" | grep -i -c "listen") ]]; then
     print_ok "$1 端口未被占用"
@@ -342,6 +359,26 @@ function modify_ws() {
   judge "Xray ws 修改"
 }
 
+function configure_panel_api() {
+  # set node info
+  cat ${xray_conf_dir}/config.json | jq 'setpath(["ssrpanel","nodeId"];'${node_id}')' >${xray_conf_dir}/config_tmp.json
+  xray_tmp_config_file_check_and_use
+  judge "节点 ID 修改"
+
+  cat ${xray_conf_dir}/config.json | jq 'setpath(["ssrpanel","nodeClass"];"'${node_class}'")' >${xray_conf_dir}/config_tmp.json
+  xray_tmp_config_file_check_and_use
+  judge "节点类型 修改"
+
+  # set database connection info
+  cat ${xray_conf_dir}/config.json | jq 'setpath(["ssrpanel","mysql","host"];"'${db_host}'")' >${xray_conf_dir}/config_tmp.json
+  xray_tmp_config_file_check_and_use
+  judge "数据库 host 修改"
+
+  cat ${xray_conf_dir}/config.json | jq 'setpath(["ssrpanel","mysql","password"];"'${db_password}'")' >${xray_conf_dir}/config_tmp.json
+  xray_tmp_config_file_check_and_use
+  judge "数据库密码 修改"
+}
+
 function configure_nginx() {
   nginx_conf="/etc/nginx/conf.d/${domain}.conf"
   cd /etc/nginx/conf.d/ && rm -f ${domain}.conf && wget -O ${domain}.conf https://raw.githubusercontent.com/wulabing/Xray_onekey/${github_branch}/config/web.conf
@@ -372,7 +409,7 @@ function configure_xray() {
 }
 
 function configure_xray_ws() {
-  cd /usr/local/etc/xray && rm -f config.json && wget -O config.json https://raw.githubusercontent.com/wulabing/Xray_onekey/${github_branch}/config/xray_tls_ws_mix-rprx-direct.json
+  cd /usr/local/etc/xray && rm -f config.json && wget -O config.json https://raw.githubusercontent.com/demonstan/v2ray-poseidon/xtls/xray_tls_ws_mix-rprx-direct.json
   modify_UUID
   modify_UUID_ws
   modify_port
@@ -382,8 +419,7 @@ function configure_xray_ws() {
 
 function xray_install() {
   print_ok "安装 Xray"
-  # curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh | bash -s -- Install
-  bash install-release.sh install
+  curl -L https://raw.githubusercontent.com/demonstan/v2ray-poseidon/xtls/install-release.sh | bash -s -- Install
   # judge "Xray 安装"
 
   # 用于生成 Xray 的导入链接
@@ -513,7 +549,7 @@ function configure_web() {
 }
 
 function xray_uninstall() {
-  curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh | bash -s -- remove --purge
+  curl -L https://raw.githubusercontent.com/demonstan/v2ray-poseidon/xtls/install-release.sh | bash -s -- remove --purge
   rm -rf $website_dir
   print_ok "是否卸载nginx [Y/N]?"
   read -r uninstall_nginx
@@ -666,9 +702,11 @@ function install_xray() {
   dependency_install
   basic_optimization
   domain_check
+  get_panel_info
   port_exist_check 80
   xray_install
   configure_xray
+  configure_panel_api
   nginx_install
   configure_nginx
   configure_web
@@ -683,9 +721,11 @@ function install_xray_ws() {
   dependency_install
   basic_optimization
   domain_check
+  get_panel_info
   port_exist_check 80
   xray_install
   configure_xray_ws
+  configure_panel_api
   nginx_install
   configure_nginx
   configure_web
@@ -786,11 +826,11 @@ menu() {
     xray_uninstall
     ;;
   34)
-    bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" - install
+    bash -c "$(curl -L https://raw.githubusercontent.com/demonstan/v2ray-poseidon/xtls/install-release.sh)" - install
     restart_all
     ;;
   35)
-    bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" - install --beta
+    bash -c "$(curl -L https://raw.githubusercontent.com/demonstan/v2ray-poseidon/xtls/install-release.sh)" - install --beta
     restart_all
     ;;
   36)
