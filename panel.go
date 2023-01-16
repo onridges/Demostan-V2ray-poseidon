@@ -10,6 +10,7 @@ import (
 	"github.com/shirou/gopsutil/load"
 	"github.com/xtls/xray-core/common/protocol"
 	"github.com/xtls/xray-core/common/serial"
+	"github.com/xtls/xray-core/proxy/trojan"
 	"github.com/xtls/xray-core/proxy/vless"
 	"github.com/xtls/xray-core/proxy/vmess"
 	"google.golang.org/grpc"
@@ -258,7 +259,17 @@ func (p *Panel) convertUser(userModel UserModel) *protocol.User {
 				Encryption: userCfg.SecurityStr,
 			}),
 		}
+	} else if protocol_ == "trojan" {
+		return &protocol.User{
+			Level: userCfg.Level,
+			Email: userModel.Email,
+			Account: serial.ToTypedMessage(&trojan.Account{
+				Password: userModel.VmessID,
+				Flow:     userCfg.Flow,
+			}),
+		}
 	} else {
+		// default vmess
 		return &protocol.User{
 			Level: userCfg.Level,
 			Email: userModel.Email,
