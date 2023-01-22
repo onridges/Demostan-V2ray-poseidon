@@ -288,8 +288,8 @@ function get_panel_info() {
   # 输入节点 ID
   read -rp "请输入节点 ID:" node_id
   # 输入节点类型, 默认 "B"
-  read -rp "请输入节点类型(默认 B):" node_type
-  [ -z "$node_type" ] && node_type="B"
+  read -rp "请输入节点类型(默认 B):" node_class
+  [ -z "$node_class" ] && node_class="B"
 }
 
 function port_exist_check() {
