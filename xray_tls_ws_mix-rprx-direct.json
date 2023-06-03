@@ -7,13 +7,9 @@
     "inbounds": [
         {
             "port": 443,
-            "protocol": "trojan",
+            "protocol": "vless",
             "settings": {
                 "clients": [
-                    {
-                        "id": "xxx",
-                        "flow": "xtls-rprx-direct"
-                    }
                 ],
                 "decryption": "none",
                 "fallbacks": [
@@ -26,22 +22,13 @@
                         "dest": 60001,
                         "alpn": "h2",
                         "xver": 1
-                    },
-                    {
-                        "dest": 60002,
-                        "path": "/3b97f91afb42e99/",
-                        "xver": 1
-                    },
-                    {
-                        "dest": 60003,
-                        "xver": 1
                     }
                 ]
             },
             "streamSettings": {
                 "network": "tcp",
-                "security": "xtls",
-                "xtlsSettings": {
+                "security": "tls",
+                "tlsSettings": {
                     "minVersion": "1.2",
                     "certificates": [
                         {
@@ -63,48 +50,6 @@
                 ]
             },
             "tag": "proxy"
-        },
-        {
-            "port": 60002,
-            "listen": "127.0.0.1",
-            "protocol": "vless",
-            "settings": {
-                "clients": [
-                    {
-                        "id": "xxx"
-                    }
-                ],
-                "decryption": "none"
-            },
-            "streamSettings": {
-                "network": "ws",
-                "security": "none",
-                "wsSettings": {
-                    "acceptProxyProtocol": true,
-                    "path": "/xxx/"
-                }
-            }
-        },
-        {
-            "port": 60003,
-            "listen": "127.0.0.1",
-            "protocol": "trojan",
-            "settings": {
-                "clients": [
-                    {
-                        "password": "password",
-                        "level": 0,
-                        "email": "love@example.com"
-                    }
-                ]
-            },
-            "streamSettings": {
-                "network": "tcp",
-                "security": "none",
-                "tcpSettings": {
-                    "acceptProxyProtocol": true
-                }
-            }
         },
         {
             "listen": "127.0.0.1",
@@ -218,7 +163,7 @@
             "alterId": 2,
             "inboundTag": "proxy",
             "level": 0,
-            "flow": "xtls-rprx-direct",
+            "flow": "xtls-rprx-vision",
             "security": "auto"
         }
     },
