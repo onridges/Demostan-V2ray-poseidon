@@ -1,0 +1,179 @@
+{
+    "log": {
+        "access": "/var/log/xray/access.log",
+        "error": "/var/log/xray/error.log",
+        "loglevel": "warning"
+    },
+    "inbounds": [
+        {
+            "port": 443,
+            "protocol": "vless",
+            "settings": {
+                "clients": [
+                ],
+                "decryption": "none",
+                "fallbacks": [
+                    {
+                        "dest": 60000,
+                        "alpn": "",
+                        "xver": 1
+                    },
+                    {
+                        "dest": 60001,
+                        "alpn": "h2",
+                        "xver": 1
+                    }
+                ]
+            },
+            "streamSettings": {
+                "network": "tcp",
+                "security": "tls",
+                "tlsSettings": {
+                    "minVersion": "1.2",
+                    "certificates": [
+                        {
+                            "certificateFile": "/usr/local/etc/xray/self_signed_cert.pem",
+                            "keyFile": "/usr/local/etc/xray/self_signed_key.pem"
+                        },
+                        {
+                            "certificateFile": "/ssl/xray.crt",
+                            "keyFile": "/ssl/xray.key"
+                        }
+                    ]
+                }
+            },
+            "sniffing": {
+                "enabled": true,
+                "destOverride": [
+                    "http",
+                    "tls"
+                ]
+            },
+            "tag": "proxy"
+        },
+        {
+            "listen": "127.0.0.1",
+            "port": 10085,
+            "protocol": "dokodemo-door",
+            "settings": {
+                "address": "127.0.0.1"
+            },
+            "tag": "api"
+        }
+    ],
+    "dns": {
+        "servers": [
+            "https+local://1.1.1.1/dns-query",
+            "localhost"
+        ]
+    },
+    "outbounds": [
+        {
+            "tag": "block",
+            "protocol": "blackhole"
+        },
+        {
+            "protocol": "freedom",
+            "settings": {},
+            "tag": "IP4_out"
+        },
+        {
+            "protocol": "freedom",
+            "settings": {
+                "domainStrategy": "UseIPv6"
+            },
+            "tag": "IP6_out"
+        }
+    ],
+    "policy": {
+        "levels": {
+            "0": {
+                "connIdle": 300,
+                "downlinkOnly": 5,
+                "handshake": 4,
+                "statsUserDownlink": true,
+                "statsUserUplink": true,
+                "uplinkOnly": 2
+            }
+        },
+        "system": {
+            "statsInboundDownlink": true,
+            "statsInboundUplink": true
+        }
+    },
+    "routing": {
+        "domainStrategy": "IPIfNonMatch",
+        "rules": [
+            {
+                "inboundTag": [
+                    "api"
+                ],
+                "outboundTag": "api",
+                "type": "field"
+            },
+            {
+                "type": "field",
+                "ip": [
+                    "geoip:private"
+                ],
+                "outboundTag": "block"
+            },
+            {
+                "type": "field",
+                "ip": [
+                    "geoip:cn"
+                ],
+                "outboundTag": "block"
+            },
+            {
+                "type": "field",
+                "domain": [
+                    "geosite:category-ads-all"
+                ],
+                "outboundTag": "block"
+            },
+            {
+                "domain": [
+                    "geosite:netflix"
+                ],
+                "outboundTag": "IP6_out",
+                "type": "field"
+            },
+            {
+                "type": "field",
+                "outboundTag": "IP4_out",
+                "network": "udp,tcp"
+            }
+        ],
+        "strategy": "rules"
+    },
+    "ssrpanel": {
+        "checkRate": 300,
+        "ignoreEmptyVmessID": true,
+        "mysql": {
+            "dbname": "shadowsocks",
+            "host": "xxx",
+            "password": "xxx",
+            "port": 3306,
+            "user": "root"
+        },
+        "nodeClass": "A",
+        "nodeId": 1,
+        "user": {
+            "alterId": 2,
+            "inboundTag": "proxy",
+            "level": 0,
+            "flow": "xtls-rprx-vision",
+            "security": "auto"
+        }
+    },
+    "api": {
+        "services": [
+            "HandlerService",
+            "LoggerService",
+            "StatsService"
+        ],
+        "tag": "api"
+    },
+    "stats": {}
+}
