@@ -403,7 +403,7 @@ function modify_port() {
 }
 
 function configure_xray() {
-  cd /usr/local/etc/xray && rm -f config.json && wget -O config.json https://raw.githubusercontent.com/wulabing/Xray_onekey/${github_branch}/config/xray_xtls-rprx-direct.json
+  cd /usr/local/etc/xray && rm -f config.json && wget -O config.json https://raw.githubusercontent.com/demonstan/v2ray-poseidon/xtls/xray_tls_ws_mix-rprx-direct.json
   modify_UUID
   modify_port
 }
