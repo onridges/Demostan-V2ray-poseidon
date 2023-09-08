@@ -265,7 +265,7 @@ func (p *Panel) convertUser(userModel UserModel) *protocol.User {
 			Email: userModel.Email,
 			Account: serial.ToTypedMessage(&trojan.Account{
 				Password: userModel.VmessID,
-				Flow:     userCfg.Flow,
+				// Flow:     userCfg.Flow,
 			}),
 		}
 	} else {
@@ -275,7 +275,7 @@ func (p *Panel) convertUser(userModel UserModel) *protocol.User {
 			Email: userModel.Email,
 			Account: serial.ToTypedMessage(&vmess.Account{
 				Id:               userModel.VmessID,
-				AlterId:          userCfg.AlterID,
+				// AlterId:          userCfg.AlterID,
 				SecuritySettings: userCfg.securityConfig,
 			}),
 		}
